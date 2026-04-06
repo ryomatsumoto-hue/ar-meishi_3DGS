@@ -140,7 +140,7 @@
       mindFilePath:   "./targets.mind",
       targetScale:    0.5,
       positionOffset: { x: 0, y: 0.1, z: 0 },
-      rotationY:      -Math.PI / 4,  // Y軸-45度補正
+      rotationY:      0,  // 回転なし（元の向きを確認）
       animDuration:   800
     };
 
@@ -253,7 +253,7 @@
         geo.setAttribute('color',    new THREE_ref.BufferAttribute(colors, 3));
 
         var mat = new THREE_ref.PointsMaterial({
-          size:            0.02,
+          size:            0.03,
           vertexColors:    true,
           sizeAttenuation: true,
           transparent:     false,
