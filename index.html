@@ -127,8 +127,8 @@
     var CONFIG = {
       splatPath:      "./ryo_ss60_edit.splat",
       mindFilePath:   "./targets.mind",
-      targetScale:    0.15,
-      positionOffset: { x: 0, y: 0.05, z: 0 },
+      targetScale:    0.5,
+      positionOffset: { x: 0, y: 0.1, z: 0 },
       animDuration:   800
     };
 
@@ -263,7 +263,8 @@
         var displayMesh = null;
         var splatViewer = null;
 
-        var GS3D = (typeof GaussianSplats3D !== "undefined") ? GaussianSplats3D : null;
+        var GS3D = (typeof window.GaussianSplats3D !== "undefined") ? window.GaussianSplats3D : null;
+        console.log("[DEBUG] GS3D=", typeof GS3D, "THREE=", typeof THREE_ref);
 
         if (GS3D) {
           setStatus("3DGSデータを読み込み中…");
@@ -310,8 +311,8 @@
     function setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref) {
       if (!displayMesh) {
         if (THREE_ref) {
-          console.log("ℹ️ フォールバックオブジェクトを使用");
-          var geo = new THREE_ref.SphereGeometry(0.08, 32, 32);
+          console.log("ℹ️ フォールバックオブジェクトを使用（GS3D=" + typeof GS3D + "）");
+          var geo = new THREE_ref.SphereGeometry(0.5, 32, 32);
           var mat = new THREE_ref.MeshStandardMaterial({
             color: 0x4488ff, metalness: 0.3, roughness: 0.4
           });
