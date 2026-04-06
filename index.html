@@ -264,9 +264,11 @@
         var splatViewer = null;
 
         var GS3D = (typeof window.GaussianSplats3D !== "undefined") ? window.GaussianSplats3D : null;
-        console.log("[DEBUG] GS3D=", typeof GS3D, "THREE=", typeof THREE_ref);
+        var debugMsg = "[DEBUG] GS3D=" + typeof GS3D + " THREE=" + typeof THREE_ref + " Viewer=" + (GS3D ? typeof GS3D.Viewer : "N/A");
+        console.log(debugMsg);
+        setStatus(debugMsg);
 
-        if (GS3D) {
+        if (GS3D && GS3D.Viewer) {
           setStatus("3DGSデータを読み込み中…");
           try {
             splatViewer = new GS3D.Viewer({
@@ -274,26 +276,31 @@
               selfDrivenMode:         false,
               useBuiltInControls:     false,
               ignoreDevicePixelRatio: false,
-              gpuAcceleratedSort:     true,
-              sharedMemoryForWorkers: false
+              gpuAcceleratedSort:     false,
+              sharedMemoryForWorkers: false,
+              dynamicScene:           false
             });
             splatViewer.loadFile(CONFIG.splatPath, {
               splatAlphaRemovalThreshold:    5,
-              halfPrecisionCovariancesOnGPU: true
+              halfPrecisionCovariancesOnGPU: false
             }).then(function() {
               displayMesh = splatViewer.splatMesh;
               console.log("✅ 3DGS読み込み成功");
               setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref);
             }).catch(function(e) {
               console.warn("3DGS読み込み失敗:", e);
+              setStatus("3DGS失敗: " + (e.message || String(e)));
               setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
             });
           } catch (e) {
             console.warn("3DGS初期化失敗:", e);
+            setStatus("3DGS初期化失敗: " + (e.message || String(e)));
             setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
           }
         } else {
-          console.log("ℹ️ GaussianSplats3D未定義、フォールバックを使用");
+          var msg = "GaussianSplats3D未定義→フォールバック使用";
+          console.log("ℹ️ " + msg);
+          setStatus(msg);
           setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
         }
 
