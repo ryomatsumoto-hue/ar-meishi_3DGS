@@ -154,7 +154,7 @@
       console.log("[STATUS]", msg);
       debugLog.push(msg);
       var dbg = document.getElementById("debug-overlay");
-      if (dbg) dbg.textContent = debugLog.slice(-8).join("\n");
+      if (dbg) dbg.textContent = debugLog.slice(-15).join("\n");
     }
 
     function showError(msg) {
@@ -395,12 +395,14 @@
               ignoreDevicePixelRatio: false,
               gpuAcceleratedSort:     false,
               sharedMemoryForWorkers: false,
-              dynamicScene:           false
+              dynamicScene:           false,
+              inMemoryCompressionLevel: 0
             });
             scene.add(splatViewer.splatMesh);
             splatViewer.addSplatScene(CONFIG.splatPath, {
               splatAlphaRemovalThreshold: 5,
-              progressiveLoad:            false
+              progressiveLoad:            false,
+              format:                     0
             }).then(function() {
               displayMesh = splatViewer.splatMesh;
               setStatus("✅ GS3D読み込み成功");
