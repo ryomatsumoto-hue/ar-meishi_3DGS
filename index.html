@@ -7,157 +7,85 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>AR 名刺 - 3DGS</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
-      width: 100%;
-      height: 100%;
+      width: 100%; height: 100%;
       overflow: hidden;
       background: #000;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
-
-    /* MindAR のコンテナ */
-    #ar-container {
-      width: 100%;
-      height: 100%;
-      position: relative;
-    }
+    #ar-container { width: 100%; height: 100%; position: relative; }
 
     /* ローディング画面 */
     #loading-screen {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.92);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      color: white;
-      gap: 20px;
+      background: rgba(0,0,0,0.92);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      z-index: 9999; color: white; gap: 20px;
     }
-
-    #loading-screen .logo {
-      font-size: 48px;
-    }
-
-    #loading-screen h1 {
-      font-size: 22px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-    }
-
-    #loading-screen p {
-      font-size: 14px;
-      color: #aaa;
-      text-align: center;
-      max-width: 280px;
-      line-height: 1.6;
-    }
-
+    #loading-screen .logo { font-size: 48px; }
+    #loading-screen h1 { font-size: 22px; font-weight: 600; }
+    #loading-screen p { font-size: 14px; color: #aaa; text-align: center; max-width: 280px; line-height: 1.6; }
     .spinner {
-      width: 44px;
-      height: 44px;
+      width: 44px; height: 44px;
       border: 3px solid rgba(255,255,255,0.2);
       border-top-color: #fff;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* スキャン案内UI */
+    /* スキャン案内 */
     #scan-hint {
-      position: fixed;
-      bottom: 40px;
-      left: 50%;
+      position: fixed; bottom: 40px; left: 50%;
       transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.65);
-      color: white;
-      padding: 14px 24px;
-      border-radius: 30px;
-      font-size: 15px;
-      text-align: center;
-      z-index: 100;
+      background: rgba(0,0,0,0.65);
+      color: white; padding: 14px 24px;
+      border-radius: 30px; font-size: 15px;
+      text-align: center; z-index: 100;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       border: 1px solid rgba(255,255,255,0.15);
       pointer-events: none;
       transition: opacity 0.5s ease;
+      white-space: nowrap;
     }
+    #scan-hint.hidden { opacity: 0; }
 
-    #scan-hint.hidden {
-      opacity: 0;
-    }
-
-    /* マーカー認識時のフラッシュ演出 */
+    /* フラッシュ演出 */
     #found-flash {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
-      background: rgba(255, 255, 255, 0.3);
-      z-index: 50;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s ease;
+      background: rgba(255,255,255,0.3);
+      z-index: 50; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s ease;
     }
+    #found-flash.flash { opacity: 1; }
 
-    #found-flash.flash {
-      opacity: 1;
-    }
-
-    /* エラー表示 */
+    /* エラー画面 */
     #error-screen {
-      position: fixed;
-      top: 0; left: 0;
+      position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       background: rgba(0,0,0,0.9);
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-      color: white;
-      gap: 16px;
-      padding: 32px;
-      text-align: center;
+      display: none; flex-direction: column;
+      justify-content: center; align-items: center;
+      z-index: 9999; color: white; gap: 16px;
+      padding: 32px; text-align: center;
     }
-
-    #error-screen h2 {
-      font-size: 20px;
-      color: #ff6b6b;
-    }
-
-    #error-screen p {
-      font-size: 14px;
-      color: #ccc;
-      line-height: 1.6;
-    }
-
+    #error-screen h2 { font-size: 20px; color: #ff6b6b; }
+    #error-screen p { font-size: 14px; color: #ccc; line-height: 1.6; white-space: pre-line; }
     #error-screen button {
-      margin-top: 8px;
-      padding: 12px 28px;
-      background: white;
-      color: black;
-      border: none;
-      border-radius: 24px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
+      margin-top: 8px; padding: 12px 28px;
+      background: white; color: black;
+      border: none; border-radius: 24px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
     }
   </style>
 </head>
 <body>
 
-  <!-- ローディング画面 -->
   <div id="loading-screen">
     <div class="logo">✨</div>
     <h1>AR 名刺</h1>
@@ -165,167 +93,87 @@
     <p>カメラと3Dデータを<br>読み込んでいます…</p>
   </div>
 
-  <!-- エラー画面 -->
   <div id="error-screen">
     <h2>⚠️ エラーが発生しました</h2>
-    <p id="error-message">カメラへのアクセスが拒否されました。<br>ブラウザの設定からカメラを許可してください。</p>
+    <p id="error-message">カメラへのアクセスが拒否されました。</p>
     <button onclick="location.reload()">再試行</button>
   </div>
 
-  <!-- フラッシュ演出 -->
   <div id="found-flash"></div>
-
-  <!-- スキャン案内 -->
   <div id="scan-hint">📇 名刺のQRコードにカメラを向けてください</div>
-
-  <!-- AR コンテナ -->
   <div id="ar-container"></div>
 
-  <!-- ライブラリ読み込み -->
-  <!-- Three.js r158 -->
+  <!-- Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 
   <!-- MindAR.js (Three.js版) -->
   <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
 
-  <!-- TWEEN.js (アニメーション) -->
+  <!-- TWEEN.js -->
   <script src="https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/src/Tween.js"></script>
 
-  <script type="module">
+  <!-- gaussian-splats-3d (UMD版) -->
+  <script src="https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.5/build/gaussian-splats-3d.umd.js"></script>
+
+  <script>
     // =====================================================
     // 設定
     // =====================================================
-    const CONFIG = {
-      // .splat ファイルのパス（同じフォルダに配置）
-      splatPath: "./ryo_ss60_edit.splat",
-
-      // MindAR マーカーファイル（.mind）のパス
-      // → MindAR Compiler で qr_marker.png から生成してください
-      // → https://hiukim.github.io/mind-ar-js-doc/tools/compile
-      mindFilePath: "./targets.mind",
-
-      // 3DGSの表示スケール（名刺サイズに合わせて調整）
-      initialScale: 0.0,   // 出現前（非表示）
-      targetScale:  0.15,  // 出現後のスケール（調整してください）
-
-      // 3DGSの位置オフセット（マーカー中心からのずれ）
-      positionOffset: { x: 0, y: 0.1, z: 0 },
-
-      // ニョキッとアニメーションの時間（ms）
-      animDuration: 800,
+    var CONFIG = {
+      splatPath:      "./ryo_ss60_edit.splat",
+      mindFilePath:   "./targets.mind",
+      targetScale:    0.15,
+      positionOffset: { x: 0, y: 0.05, z: 0 },
+      animDuration:   800
     };
-
-    // =====================================================
-    // グローバル変数
-    // =====================================================
-    let mindarThree = null;
-    let splatViewer = null;
-    let splatMesh = null;
-    let anchorGroup = null;
-    let isMarkerFound = false;
-    let tweenGroup = null;
 
     // =====================================================
     // ユーティリティ
     // =====================================================
     function showError(msg) {
       document.getElementById("loading-screen").style.display = "none";
-      const errScreen = document.getElementById("error-screen");
-      errScreen.style.display = "flex";
+      var s = document.getElementById("error-screen");
+      s.style.display = "flex";
       document.getElementById("error-message").textContent = msg;
     }
 
     function hideLoading() {
-      const el = document.getElementById("loading-screen");
+      var el = document.getElementById("loading-screen");
       el.style.transition = "opacity 0.5s ease";
       el.style.opacity = "0";
-      setTimeout(() => { el.style.display = "none"; }, 500);
+      setTimeout(function(){ el.style.display = "none"; }, 500);
     }
 
     function flashScreen() {
-      const flash = document.getElementById("found-flash");
-      flash.classList.add("flash");
-      setTimeout(() => flash.classList.remove("flash"), 200);
+      var f = document.getElementById("found-flash");
+      f.classList.add("flash");
+      setTimeout(function(){ f.classList.remove("flash"); }, 200);
     }
 
     // =====================================================
-    // 3DGS (Gaussian Splats) の読み込み
-    // =====================================================
-    async function loadGaussianSplat(scene) {
-      // @mkkellogg/gaussian-splats-3d を動的インポート
-      // CDN から ESM モジュールとして読み込む
-      let GaussianSplats3D;
-      try {
-        GaussianSplats3D = await import(
-          "https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.5/build/gaussian-splats-3d.module.js"
-        );
-      } catch (e) {
-        console.error("gaussian-splats-3d の読み込みに失敗:", e);
-        throw new Error("3DGSライブラリの読み込みに失敗しました");
-      }
-
-      const { Viewer } = GaussianSplats3D;
-
-      // MindAR の Three.js シーンに統合するため、
-      // Viewer を「headless」モードで使用し、
-      // レンダリングは MindAR のレンダラーに委譲する
-      splatViewer = new Viewer({
-        threeScene: scene,
-        selfDrivenMode: false,       // MindAR のレンダーループを使用
-        useBuiltInControls: false,   // カメラ操作は MindAR に任せる
-        ignoreDevicePixelRatio: false,
-        gpuAcceleratedSort: true,
-        sharedMemoryForWorkers: false,
-      });
-
-      await splatViewer.loadFile(CONFIG.splatPath, {
-        splatAlphaRemovalThreshold: 5,
-        halfPrecisionCovariancesOnGPU: true,
-      });
-
-      // splatMesh を取得してアンカーグループに追加
-      splatMesh = splatViewer.splatMesh;
-      splatMesh.scale.set(0, 0, 0); // 最初は非表示
-      splatMesh.position.set(
-        CONFIG.positionOffset.x,
-        CONFIG.positionOffset.y,
-        CONFIG.positionOffset.z
-      );
-
-      return splatMesh;
-    }
-
-    // =====================================================
-    // ニョキッとアニメーション（出現）
+    // ニョキッとアニメーション
     // =====================================================
     function animateAppear(mesh) {
       if (!mesh) return;
-      const from = { scale: 0 };
-      const to   = { scale: CONFIG.targetScale };
-
-      const tween = new TWEEN.Tween(from)
-        .to(to, CONFIG.animDuration)
-        .easing(TWEEN.Easing.Back.Out)  // バウンス感のある出現
-        .onUpdate(() => {
-          mesh.scale.set(from.scale, from.scale, from.scale);
+      var from = { s: 0 };
+      new TWEEN.Tween(from)
+        .to({ s: CONFIG.targetScale }, CONFIG.animDuration)
+        .easing(TWEEN.Easing.Back.Out)
+        .onUpdate(function() {
+          mesh.scale.set(from.s, from.s, from.s);
         })
         .start();
     }
 
-    // =====================================================
-    // ニョキッとアニメーション（消滅）
-    // =====================================================
     function animateDisappear(mesh) {
       if (!mesh) return;
-      const currentScale = mesh.scale.x;
-      const from = { scale: currentScale };
-      const to   = { scale: 0 };
-
+      var cur = mesh.scale.x;
+      var from = { s: cur };
       new TWEEN.Tween(from)
-        .to(to, 300)
+        .to({ s: 0 }, 300)
         .easing(TWEEN.Easing.Quadratic.In)
-        .onUpdate(() => {
-          mesh.scale.set(from.scale, from.scale, from.scale);
+        .onUpdate(function() {
+          mesh.scale.set(from.s, from.s, from.s);
         })
         .start();
     }
@@ -335,70 +183,95 @@
     // =====================================================
     async function init() {
       try {
-        // MindAR の初期化
-        mindarThree = new window.MINDAR.IMAGE.MindARThree({
-          container: document.getElementById("ar-container"),
-          imageTargetSrc: CONFIG.mindFilePath,
-          maxTrack: 1,
-          uiLoading: "no",   // カスタムローディングUIを使用
-          uiScanning: "no",  // カスタムスキャンUIを使用
-          uiError: "no",
-        });
-
-        const { renderer, scene, camera } = mindarThree;
-
-        // ライティング設定
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-        dirLight.position.set(1, 2, 1);
-        scene.add(dirLight);
-
-        // アンカー（マーカー追従グループ）の作成
-        const anchor = mindarThree.addAnchor(0);
-        anchorGroup = anchor.group;
-
-        // 3DGS の読み込み
-        let splatMeshLoaded;
-        try {
-          splatMeshLoaded = await loadGaussianSplat(scene);
-          anchorGroup.add(splatMeshLoaded);
-        } catch (e) {
-          console.warn("3DGS読み込み失敗、フォールバックオブジェクトを使用:", e);
-          // フォールバック: シンプルな3Dオブジェクト
-          const geometry = new THREE.SphereGeometry(0.08, 32, 32);
-          const material = new THREE.MeshStandardMaterial({
-            color: 0x4488ff,
-            metalness: 0.3,
-            roughness: 0.4,
-          });
-          splatMeshLoaded = new THREE.Mesh(geometry, material);
-          splatMeshLoaded.scale.set(0, 0, 0);
-          anchorGroup.add(splatMeshLoaded);
+        // MindAR が読み込まれているか確認
+        if (typeof window.MINDAR === "undefined" || typeof window.MINDAR.IMAGE === "undefined") {
+          throw new Error("MindAR.jsの読み込みに失敗しました。ページを再読み込みしてください。");
         }
 
-        // マーカー認識イベント
-        anchor.onTargetFound = () => {
-          console.log("✅ マーカー認識！");
-          isMarkerFound = true;
-          flashScreen();
-          animateAppear(splatMeshLoaded);
+        // MindAR 初期化
+        var mindarThree = new window.MINDAR.IMAGE.MindARThree({
+          container:        document.getElementById("ar-container"),
+          imageTargetSrc:   CONFIG.mindFilePath,
+          maxTrack:         1,
+          uiLoading:        "no",
+          uiScanning:       "no",
+          uiError:          "no"
+        });
 
-          // スキャン案内を非表示
-          const hint = document.getElementById("scan-hint");
-          hint.classList.add("hidden");
+        var renderer = mindarThree.renderer;
+        var scene    = mindarThree.scene;
+        var camera   = mindarThree.camera;
+
+        // ライティング
+        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        var dir = new THREE.DirectionalLight(0xffffff, 0.5);
+        dir.position.set(1, 2, 1);
+        scene.add(dir);
+
+        // アンカー
+        var anchor = mindarThree.addAnchor(0);
+        var anchorGroup = anchor.group;
+
+        // 3DGS または フォールバックオブジェクト
+        var displayMesh = null;
+        var splatViewer = null;
+
+        // gaussian-splats-3d が読み込まれているか確認
+        if (typeof GaussianSplats3D !== "undefined") {
+          try {
+            splatViewer = new GaussianSplats3D.Viewer({
+              threeScene:            scene,
+              selfDrivenMode:        false,
+              useBuiltInControls:    false,
+              ignoreDevicePixelRatio: false,
+              gpuAcceleratedSort:    true,
+              sharedMemoryForWorkers: false
+            });
+
+            await splatViewer.loadFile(CONFIG.splatPath, {
+              splatAlphaRemovalThreshold: 5,
+              halfPrecisionCovariancesOnGPU: true
+            });
+
+            displayMesh = splatViewer.splatMesh;
+            console.log("✅ 3DGS読み込み成功");
+          } catch (e) {
+            console.warn("3DGS読み込み失敗、フォールバックを使用:", e);
+            splatViewer = null;
+          }
+        }
+
+        // フォールバック: 3DGSが使えない場合は球体を表示
+        if (!displayMesh) {
+          console.log("ℹ️ フォールバックオブジェクトを使用");
+          var geo = new THREE.SphereGeometry(0.08, 32, 32);
+          var mat = new THREE.MeshStandardMaterial({
+            color: 0x4488ff, metalness: 0.3, roughness: 0.4
+          });
+          displayMesh = new THREE.Mesh(geo, mat);
+        }
+
+        displayMesh.scale.set(0, 0, 0);
+        displayMesh.position.set(
+          CONFIG.positionOffset.x,
+          CONFIG.positionOffset.y,
+          CONFIG.positionOffset.z
+        );
+        anchorGroup.add(displayMesh);
+
+        // マーカー認識イベント
+        anchor.onTargetFound = function() {
+          console.log("✅ マーカー認識");
+          flashScreen();
+          animateAppear(displayMesh);
+          document.getElementById("scan-hint").classList.add("hidden");
         };
 
-        // マーカー消失イベント
-        anchor.onTargetLost = () => {
+        anchor.onTargetLost = function() {
           console.log("❌ マーカー消失");
-          isMarkerFound = false;
-          animateDisappear(splatMeshLoaded);
-
-          // スキャン案内を再表示
-          setTimeout(() => {
-            const hint = document.getElementById("scan-hint");
-            hint.classList.remove("hidden");
+          animateDisappear(displayMesh);
+          setTimeout(function() {
+            document.getElementById("scan-hint").classList.remove("hidden");
           }, 1000);
         };
 
@@ -407,33 +280,32 @@
         hideLoading();
 
         // レンダーループ
-        renderer.setAnimationLoop((time) => {
+        renderer.setAnimationLoop(function(time) {
           TWEEN.update(time);
-
-          // 3DGS のソート更新（カメラ方向に合わせてスプラットをソート）
-          if (splatViewer && isMarkerFound) {
-            splatViewer.update();
+          if (splatViewer) {
+            try { splatViewer.update(); } catch(e) {}
           }
-
-          mindarThree.renderer.render(scene, camera);
+          renderer.render(scene, camera);
         });
 
       } catch (err) {
         console.error("AR初期化エラー:", err);
-        if (err.name === "NotAllowedError" || err.message?.includes("camera")) {
+        var msg = err.message || String(err);
+        if (err.name === "NotAllowedError" || msg.includes("camera") || msg.includes("Permission")) {
           showError("カメラへのアクセスが拒否されました。\nブラウザの設定からカメラを許可してください。");
-        } else if (err.message?.includes("targets.mind")) {
-          showError("マーカーファイル (targets.mind) が見つかりません。\nMindAR Compilerでqr_marker.pngをコンパイルしてください。");
+        } else if (msg.includes("targets.mind") || msg.includes("404")) {
+          showError("マーカーファイルが見つかりません。\ntargets.mind が正しく配置されているか確認してください。");
         } else {
-          showError(`エラーが発生しました:\n${err.message}`);
+          showError(msg);
         }
       }
     }
 
-    // =====================================================
-    // 起動
-    // =====================================================
-    window.addEventListener("load", init);
+    // ライブラリ読み込み完了後に初期化
+    window.addEventListener("load", function() {
+      // 少し待ってからMindARの存在を確認
+      setTimeout(init, 100);
+    });
   </script>
 </body>
 </html>
