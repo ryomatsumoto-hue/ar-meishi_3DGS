@@ -212,6 +212,58 @@
     }
 
     // =====================================================
+    // .splat ファイルパーサー（自前実装）
+    // mkkellogg形式: 32バイト/スプラット
+    //   offset  0: x,y,z          (float32 x3 = 12bytes)
+    //   offset 12: scale_0,1,2    (float32 x3 = 12bytes)
+    //   offset 24: r,g,b,a        (uint8  x4 =  4bytes)
+    //   offset 28: rot_0,1,2,3    (uint8  x4 =  4bytes)
+    // =====================================================
+    function loadSplatAsPoints(url, THREE_ref) {
+      return fetch(url).then(function(res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.arrayBuffer();
+      }).then(function(buffer) {
+        var RECORD = 32;
+        var numSplats = Math.floor(buffer.byteLength / RECORD);
+        // iOSパフォーマンスのため最大5万点に制限
+        var maxSplats = Math.min(numSplats, 50000);
+        var step = Math.max(1, Math.floor(numSplats / maxSplats));
+        var count = Math.floor(numSplats / step);
+
+        setStatus(".splat: " + numSplats + "splats → " + count + "点表示");
+
+        var positions = new Float32Array(count * 3);
+        var colors    = new Float32Array(count * 3);
+        var view = new DataView(buffer);
+
+        for (var i = 0; i < count; i++) {
+          var off = (i * step) * RECORD;
+          positions[i*3+0] = view.getFloat32(off +  0, true);
+          positions[i*3+1] = view.getFloat32(off +  4, true);
+          positions[i*3+2] = view.getFloat32(off +  8, true);
+          colors[i*3+0] = view.getUint8(off + 24) / 255;
+          colors[i*3+1] = view.getUint8(off + 25) / 255;
+          colors[i*3+2] = view.getUint8(off + 26) / 255;
+        }
+
+        var geo = new THREE_ref.BufferGeometry();
+        geo.setAttribute('position', new THREE_ref.BufferAttribute(positions, 3));
+        geo.setAttribute('color',    new THREE_ref.BufferAttribute(colors, 3));
+
+        var mat = new THREE_ref.PointsMaterial({
+          size:            0.008,
+          vertexColors:    true,
+          sizeAttenuation: true,
+          transparent:     false,
+          depthWrite:      true
+        });
+
+        return new THREE_ref.Points(geo, mat);
+      });
+    }
+
+    // =====================================================
     // メイン初期化
     // =====================================================
     function init() {
@@ -283,46 +335,16 @@
         console.log(debugMsg);
         setStatus(debugMsg);
 
-        if (GS3D && GS3D.Viewer) {
-          setStatus("3DGSデータを読み込み中…");
-          try {
-            splatViewer = new GS3D.Viewer({
-              renderer:               renderer,
-              camera:                 camera,
-              selfDrivenMode:         false,
-              useBuiltInControls:     false,
-              ignoreDevicePixelRatio: false,
-              gpuAcceleratedSort:     false,
-              sharedMemoryForWorkers: false,
-              dynamicScene:           false
-            });
-            // splatMeshをsceneに追加
-            scene.add(splatViewer.splatMesh);
-            // v0.4.x では addSplatScene() を使用
-            splatViewer.addSplatScene(CONFIG.splatPath, {
-              splatAlphaRemovalThreshold: 5,
-              progressiveLoad:            false
-            }).then(function() {
-              displayMesh = splatViewer.splatMesh;
-              console.log("✅ 3DGS読み込み成功");
-              setStatus("✅ 3DGS読み込み成功");
-              setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref);
-            }).catch(function(e) {
-              console.warn("3DGS読み込み失敗:", e);
-              setStatus("3DGS失敗: " + (e.message || String(e)).substring(0, 80));
-              setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
-            });
-          } catch (e) {
-            console.warn("3DGS初期化失敗:", e);
-            setStatus("3DGS初期化失敗: " + (e.message || String(e)));
-            setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
-          }
-        } else {
-          var msg = "GaussianSplats3D未定義→フォールバック使用";
-          console.log("ℹ️ " + msg);
-          setStatus(msg);
+        // .splat ファイルを自前でfetch・パースしてThree.js Pointsとして表示
+        setStatus(".splatファイルを読み込み中…");
+        loadSplatAsPoints(CONFIG.splatPath, THREE_ref).then(function(pointsMesh) {
+          displayMesh = pointsMesh;
+          setStatus("✅ .splat読み込み成功");
+          setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
+        }).catch(function(e) {
+          setStatus(".splat失敗: " + (e.message || String(e)).substring(0, 60));
           setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
-        }
+        });
 
       } catch (err) {
         console.error("AR初期化エラー:", err);
