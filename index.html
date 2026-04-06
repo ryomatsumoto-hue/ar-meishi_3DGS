@@ -226,8 +226,8 @@
       }).then(function(buffer) {
         var RECORD = 32;
         var numSplats = Math.floor(buffer.byteLength / RECORD);
-        // iOSパフォーマンスのため最大5万点に制限
-        var maxSplats = Math.min(numSplats, 50000);
+        // iOSパフォーマンスのため最大10万点に制限
+        var maxSplats = Math.min(numSplats, 100000);
         var step = Math.max(1, Math.floor(numSplats / maxSplats));
         var count = Math.floor(numSplats / step);
 
@@ -239,9 +239,9 @@
 
         for (var i = 0; i < count; i++) {
           var off = (i * step) * RECORD;
-          positions[i*3+0] = view.getFloat32(off +  0, true);
-          positions[i*3+1] = view.getFloat32(off +  4, true);
-          positions[i*3+2] = view.getFloat32(off +  8, true);
+          positions[i*3+0] =  view.getFloat32(off + 0, true);
+          positions[i*3+1] = -view.getFloat32(off + 4, true); // Y軸反転
+          positions[i*3+2] =  view.getFloat32(off + 8, true);
           colors[i*3+0] = view.getUint8(off + 24) / 255;
           colors[i*3+1] = view.getUint8(off + 25) / 255;
           colors[i*3+2] = view.getUint8(off + 26) / 255;
@@ -252,7 +252,7 @@
         geo.setAttribute('color',    new THREE_ref.BufferAttribute(colors, 3));
 
         var mat = new THREE_ref.PointsMaterial({
-          size:            0.008,
+          size:            0.012,
           vertexColors:    true,
           sizeAttenuation: true,
           transparent:     false,
