@@ -140,6 +140,7 @@
       mindFilePath:   "./targets.mind",
       targetScale:    0.5,
       positionOffset: { x: 0, y: 0.1, z: 0 },
+      rotationY:      -Math.PI / 4,  // Y軸-45度補正
       animDuration:   800
     };
 
@@ -226,8 +227,8 @@
       }).then(function(buffer) {
         var RECORD = 32;
         var numSplats = Math.floor(buffer.byteLength / RECORD);
-        // iOSパフォーマンスのため最大10万点に制限
-        var maxSplats = Math.min(numSplats, 100000);
+        // 全点表示（109,671点）
+        var maxSplats = numSplats;
         var step = Math.max(1, Math.floor(numSplats / maxSplats));
         var count = Math.floor(numSplats / step);
 
@@ -252,7 +253,7 @@
         geo.setAttribute('color',    new THREE_ref.BufferAttribute(colors, 3));
 
         var mat = new THREE_ref.PointsMaterial({
-          size:            0.012,
+          size:            0.02,
           vertexColors:    true,
           sizeAttenuation: true,
           transparent:     false,
@@ -385,6 +386,10 @@
         CONFIG.positionOffset.y,
         CONFIG.positionOffset.z
       );
+      // Y軸回転補正
+      if (CONFIG.rotationY) {
+        displayMesh.rotation.y = CONFIG.rotationY;
+      }
       anchorGroup.add(displayMesh);
 
       var mesh = displayMesh;
