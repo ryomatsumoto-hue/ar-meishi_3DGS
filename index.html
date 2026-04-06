@@ -275,30 +275,28 @@
 
         var geo = new THREE_ref.BufferGeometry();
         geo.setAttribute('position', new THREE_ref.BufferAttribute(positions, 3));
-        geo.setAttribute('color',    new THREE_ref.BufferAttribute(colors, 4));
-        geo.setAttribute('uv',       new THREE_ref.BufferAttribute(uvs, 2));
+        geo.setAttribute('aColor',   new THREE_ref.BufferAttribute(colors, 4));
+        geo.setAttribute('aOffset',  new THREE_ref.BufferAttribute(uvs, 2));
 
         var mat = new THREE_ref.ShaderMaterial({
           vertexShader: [
-            'attribute vec4 color;',
-            'attribute vec2 uv;',
+            'attribute vec4 aColor;',
+            'attribute vec2 aOffset;',
             'varying vec4 vColor;',
-            'varying vec2 vUv;',
+            'varying vec2 vOffset;',
             'void main() {',
-            '  vColor = color;',
-            '  vUv = uv;',
-            '  // ビルボード: カメラ空間でオフセット',
+            '  vColor = aColor;',
+            '  vOffset = aOffset;',
             '  vec4 mvPos = modelViewMatrix * vec4(position, 1.0);',
-            '  mvPos.xy += uv;',
+            '  mvPos.xy += aOffset;',
             '  gl_Position = projectionMatrix * mvPos;',
             '}'
           ].join('\n'),
           fragmentShader: [
             'varying vec4 vColor;',
-            'varying vec2 vUv;',
+            'varying vec2 vOffset;',
             'void main() {',
-            '  // ガウシアン関数でアルファ計算',
-            '  float r2 = dot(vUv, vUv);',
+            '  float r2 = dot(vOffset, vOffset);',
             '  float alpha = exp(-0.5 * r2) * vColor.a;',
             '  if (alpha < 0.02) discard;',
             '  gl_FragColor = vec4(vColor.rgb, alpha);',
