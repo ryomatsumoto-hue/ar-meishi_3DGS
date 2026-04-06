@@ -293,10 +293,12 @@
             'attribute vec4 aColor;',
             'attribute vec2 aScale;',
             'varying vec4 vColor;',
-            'varying vec2 vScale;',
+            'varying vec2 vUV;',  // -1〜1の正規化UV
             'void main() {',
             '  vColor = aColor;',
-            '  vScale = aScale;',
+            '  // aScaleはコーナーオフセット（スケール適用済み）',
+            '  // 正規化UVは符号のみ（-1か+1）',
+            '  vUV = sign(aScale);',
             '  vec4 mvPos = modelViewMatrix * vec4(position, 1.0);',
             '  mvPos.xy += aScale;',
             '  gl_Position = projectionMatrix * mvPos;',
@@ -304,20 +306,18 @@
           ].join('\n'),
           fragmentShader: [
             'varying vec4 vColor;',
-            'varying vec2 vScale;',
+            'varying vec2 vUV;',
             'void main() {',
-            '  // 正規化座標でガウシアン計算',
-            '  float nx = vScale.x;',
-            '  float ny = vScale.y;',
-            '  float r2 = nx*nx + ny*ny;',
-            '  float alpha = exp(-0.5 * r2) * vColor.a;',
+            '  // -1〜1の正規化座標でガウシアン計算',
+            '  float r2 = dot(vUV, vUV);',
+            '  float alpha = exp(-r2 * 2.0) * vColor.a;',
             '  if (alpha < 0.01) discard;',
             '  gl_FragColor = vec4(vColor.rgb, alpha);',
             '}'
           ].join('\n'),
           transparent: true,
           depthWrite:  false,
-          blending:    THREE_ref.AdditiveBlending
+          blending:    THREE_ref.NormalBlending
         });
 
         return new THREE_ref.Mesh(geo, mat);
