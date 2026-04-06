@@ -24,7 +24,7 @@ import os
 # ===== 設定 =====
 # GitHub PagesのURLに変更してください
 # 例: https://yourusername.github.io/ar-meishi/
-TARGET_URL = "https://ryomatsumoto-hue.github.io/ar-meishi/"
+TARGET_URL = "https://ryomatsumoto-hue.github.io/ar-meishi_3DGS/"
 
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 QR_FILENAME = "qr_marker.png"
