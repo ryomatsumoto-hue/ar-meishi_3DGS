@@ -7,9 +7,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>AR 名刺 - 3DGS</title>
 
-  <!-- ローカルファイルから読み込み（CDN不要） -->
+  <!-- importmap: "three" をローカルのESモジュール版にマッピング -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./three.module.min.js"
+    }
+  }
+  </script>
+
+  <!-- Three.js (グローバル変数 THREE 用) -->
   <script src="./three.min.js"></script>
-  <script src="./mindar-image-three.prod.js"></script>
+
+  <!-- MindAR.js: ESモジュール形式 → type="module" で読み込み、window.MINDAR を設定させる -->
+  <script type="module" src="./mindar-image-three.prod.js"></script>
+
+  <!-- gaussian-splats-3d: UMD形式 -->
   <script src="./gaussian-splats-3d.umd.js"></script>
 
   <style>
@@ -184,21 +197,48 @@
     }
 
     // =====================================================
+    // MindAR 準備完了を待つ（type="module" は非同期）
+    // =====================================================
+    function waitForMindAR(maxWait, callback) {
+      var elapsed = 0;
+      var interval = 100;
+      function check() {
+        if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.MindARThree) {
+          callback(null);
+        } else if (elapsed >= maxWait) {
+          callback(new Error("MindAR.js タイムアウト（" + maxWait + "ms）\nMINDAR=" + typeof window.MINDAR));
+        } else {
+          elapsed += interval;
+          setTimeout(check, interval);
+        }
+      }
+      check();
+    }
+
+    // =====================================================
     // メイン初期化
     // =====================================================
     function init() {
-      try {
-        // ライブラリ確認
-        setStatus("ライブラリ確認中…");
-        if (typeof THREE === "undefined") {
-          showError("Three.js が読み込まれていません。\nページを再読み込みしてください。");
-          return;
-        }
-        if (typeof window.MINDAR === "undefined" || typeof window.MINDAR.IMAGE === "undefined") {
-          showError("MindAR.js が読み込まれていません。\nページを再読み込みしてください。\n\n[DEBUG] MINDAR=" + typeof window.MINDAR);
-          return;
-        }
+      setStatus("ライブラリ確認中…");
 
+      if (typeof THREE === "undefined") {
+        showError("Three.js が読み込まれていません。\nページを再読み込みしてください。");
+        return;
+      }
+
+      // MindAR は type="module" で非同期読み込みのため、最大5秒待つ
+      setStatus("MindAR.js を待機中…");
+      waitForMindAR(5000, function(err) {
+        if (err) {
+          showError(err.message);
+          return;
+        }
+        startAR();
+      });
+    }
+
+    function startAR() {
+      try {
         setStatus("ARを初期化中…");
 
         var mindarThree = new window.MINDAR.IMAGE.MindARThree({
@@ -228,13 +268,9 @@
         var displayMesh = null;
         var splatViewer = null;
 
-        // GaussianSplats3D の確認
-        var GS3D = window.GaussianSplats3D;
-        if (typeof GS3D === "undefined" && typeof GaussianSplats3D !== "undefined") {
-          GS3D = GaussianSplats3D;
-        }
+        var GS3D = (typeof GaussianSplats3D !== "undefined") ? GaussianSplats3D : null;
 
-        if (typeof GS3D !== "undefined") {
+        if (GS3D) {
           setStatus("3DGSデータを読み込み中…");
           try {
             splatViewer = new GS3D.Viewer({
@@ -253,7 +289,7 @@
               console.log("✅ 3DGS読み込み成功");
               setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer);
             }).catch(function(e) {
-              console.warn("3DGS読み込み失敗、フォールバックを使用:", e);
+              console.warn("3DGS読み込み失敗:", e);
               setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null);
             });
           } catch (e) {
@@ -277,7 +313,6 @@
     }
 
     function setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer) {
-      // フォールバック: 球体
       if (!displayMesh) {
         console.log("ℹ️ フォールバックオブジェクトを使用");
         var geo = new THREE.SphereGeometry(0.08, 32, 32);
@@ -297,7 +332,6 @@
 
       var mesh = displayMesh;
 
-      // マーカー認識イベント
       anchor.onTargetFound = function() {
         console.log("✅ マーカー認識");
         flashScreen();
@@ -313,12 +347,9 @@
         }, 1000);
       };
 
-      // MindAR 開始
       setStatus("カメラを起動中…");
       mindarThree.start().then(function() {
         hideLoading();
-
-        // レンダーループ
         renderer.setAnimationLoop(function() {
           if (splatViewer) {
             try { splatViewer.update(); } catch(e) {}
