@@ -16,7 +16,6 @@
     }
     #ar-container { width: 100%; height: 100%; position: relative; }
 
-    /* ローディング画面 */
     #loading-screen {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
@@ -28,6 +27,7 @@
     #loading-screen .logo { font-size: 48px; }
     #loading-screen h1 { font-size: 22px; font-weight: 600; }
     #loading-screen p { font-size: 14px; color: #aaa; text-align: center; max-width: 280px; line-height: 1.6; }
+    #loading-status { font-size: 12px; color: #888; }
     .spinner {
       width: 44px; height: 44px;
       border: 3px solid rgba(255,255,255,0.2);
@@ -37,7 +37,6 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* スキャン案内 */
     #scan-hint {
       position: fixed; bottom: 40px; left: 50%;
       transform: translateX(-50%);
@@ -54,7 +53,6 @@
     }
     #scan-hint.hidden { opacity: 0; }
 
-    /* フラッシュ演出 */
     #found-flash {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
@@ -64,7 +62,6 @@
     }
     #found-flash.flash { opacity: 1; }
 
-    /* エラー画面 */
     #error-screen {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
@@ -75,7 +72,7 @@
       padding: 32px; text-align: center;
     }
     #error-screen h2 { font-size: 20px; color: #ff6b6b; }
-    #error-screen p { font-size: 14px; color: #ccc; line-height: 1.6; white-space: pre-line; }
+    #error-screen p { font-size: 13px; color: #ccc; line-height: 1.6; white-space: pre-line; word-break: break-all; }
     #error-screen button {
       margin-top: 8px; padding: 12px 28px;
       background: white; color: black;
@@ -91,29 +88,18 @@
     <h1>AR 名刺</h1>
     <div class="spinner"></div>
     <p>カメラと3Dデータを<br>読み込んでいます…</p>
+    <div id="loading-status">ライブラリを読み込み中…</div>
   </div>
 
   <div id="error-screen">
     <h2>⚠️ エラーが発生しました</h2>
-    <p id="error-message">カメラへのアクセスが拒否されました。</p>
+    <p id="error-message">エラーが発生しました。</p>
     <button onclick="location.reload()">再試行</button>
   </div>
 
   <div id="found-flash"></div>
   <div id="scan-hint">📇 名刺のQRコードにカメラを向けてください</div>
   <div id="ar-container"></div>
-
-  <!-- Three.js -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-
-  <!-- MindAR.js (Three.js版) -->
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
-
-  <!-- TWEEN.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/src/Tween.js"></script>
-
-  <!-- gaussian-splats-3d (UMD版) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.5/build/gaussian-splats-3d.umd.js"></script>
 
   <script>
     // =====================================================
@@ -130,6 +116,11 @@
     // =====================================================
     // ユーティリティ
     // =====================================================
+    function setStatus(msg) {
+      var el = document.getElementById("loading-status");
+      if (el) el.textContent = msg;
+    }
+
     function showError(msg) {
       document.getElementById("loading-screen").style.display = "none";
       var s = document.getElementById("error-screen");
@@ -151,31 +142,54 @@
     }
 
     // =====================================================
-    // ニョキッとアニメーション
+    // スクリプト動的ロード（順番保証）
     // =====================================================
+    function loadScript(src) {
+      return new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.crossOrigin = "anonymous";
+        s.onload = function() { resolve(); };
+        s.onerror = function() { reject(new Error('Script load failed: ' + src)); };
+        document.head.appendChild(s);
+      });
+    }
+
+    // =====================================================
+    // アニメーション（TWEEN依存なし版も用意）
+    // =====================================================
+    function animateScale(mesh, fromVal, toVal, duration, easeBack) {
+      var start = null;
+      function step(ts) {
+        if (!start) start = ts;
+        var elapsed = ts - start;
+        var t = Math.min(elapsed / duration, 1);
+        // イージング
+        var val;
+        if (easeBack) {
+          // Back.Out 相当
+          var c1 = 1.70158, c3 = c1 + 1;
+          val = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        } else {
+          // Quadratic.In
+          val = t * t;
+        }
+        var s = fromVal + (toVal - fromVal) * val;
+        mesh.scale.set(s, s, s);
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
     function animateAppear(mesh) {
       if (!mesh) return;
-      var from = { s: 0 };
-      new TWEEN.Tween(from)
-        .to({ s: CONFIG.targetScale }, CONFIG.animDuration)
-        .easing(TWEEN.Easing.Back.Out)
-        .onUpdate(function() {
-          mesh.scale.set(from.s, from.s, from.s);
-        })
-        .start();
+      animateScale(mesh, 0, CONFIG.targetScale, CONFIG.animDuration, true);
     }
 
     function animateDisappear(mesh) {
       if (!mesh) return;
       var cur = mesh.scale.x;
-      var from = { s: cur };
-      new TWEEN.Tween(from)
-        .to({ s: 0 }, 300)
-        .easing(TWEEN.Easing.Quadratic.In)
-        .onUpdate(function() {
-          mesh.scale.set(from.s, from.s, from.s);
-        })
-        .start();
+      animateScale(mesh, cur, 0, 300, false);
     }
 
     // =====================================================
@@ -183,19 +197,35 @@
     // =====================================================
     async function init() {
       try {
-        // MindAR が読み込まれているか確認
+        // --- Three.js ---
+        setStatus("Three.js を読み込み中…");
+        await loadScript('https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js');
+        if (typeof THREE === "undefined") throw new Error("Three.js の読み込みに失敗しました");
+
+        // --- MindAR.js ---
+        setStatus("MindAR.js を読み込み中…");
+        await loadScript('https://unpkg.com/mind-ar@1.2.5/dist/mindar-image-three.prod.js');
         if (typeof window.MINDAR === "undefined" || typeof window.MINDAR.IMAGE === "undefined") {
-          throw new Error("MindAR.jsの読み込みに失敗しました。ページを再読み込みしてください。");
+          throw new Error("MindAR.js の読み込みに失敗しました");
         }
 
-        // MindAR 初期化
+        // --- gaussian-splats-3d (失敗してもOK) ---
+        setStatus("3DGSライブラリを読み込み中…");
+        try {
+          await loadScript('https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.5/build/gaussian-splats-3d.umd.js');
+        } catch(e) {
+          console.warn("gaussian-splats-3d 読み込み失敗（フォールバック使用）:", e);
+        }
+
+        // --- MindAR 初期化 ---
+        setStatus("ARを初期化中…");
         var mindarThree = new window.MINDAR.IMAGE.MindARThree({
-          container:        document.getElementById("ar-container"),
-          imageTargetSrc:   CONFIG.mindFilePath,
-          maxTrack:         1,
-          uiLoading:        "no",
-          uiScanning:       "no",
-          uiError:          "no"
+          container:      document.getElementById("ar-container"),
+          imageTargetSrc: CONFIG.mindFilePath,
+          maxTrack:       1,
+          uiLoading:      "no",
+          uiScanning:     "no",
+          uiError:        "no"
         });
 
         var renderer = mindarThree.renderer;
@@ -216,23 +246,21 @@
         var displayMesh = null;
         var splatViewer = null;
 
-        // gaussian-splats-3d が読み込まれているか確認
         if (typeof GaussianSplats3D !== "undefined") {
+          setStatus("3DGSデータを読み込み中…");
           try {
             splatViewer = new GaussianSplats3D.Viewer({
-              threeScene:            scene,
-              selfDrivenMode:        false,
-              useBuiltInControls:    false,
+              threeScene:             scene,
+              selfDrivenMode:         false,
+              useBuiltInControls:     false,
               ignoreDevicePixelRatio: false,
-              gpuAcceleratedSort:    true,
+              gpuAcceleratedSort:     true,
               sharedMemoryForWorkers: false
             });
-
             await splatViewer.loadFile(CONFIG.splatPath, {
-              splatAlphaRemovalThreshold: 5,
+              splatAlphaRemovalThreshold:    5,
               halfPrecisionCovariancesOnGPU: true
             });
-
             displayMesh = splatViewer.splatMesh;
             console.log("✅ 3DGS読み込み成功");
           } catch (e) {
@@ -241,7 +269,7 @@
           }
         }
 
-        // フォールバック: 3DGSが使えない場合は球体を表示
+        // フォールバック: 球体
         if (!displayMesh) {
           console.log("ℹ️ フォールバックオブジェクトを使用");
           var geo = new THREE.SphereGeometry(0.08, 32, 32);
@@ -276,12 +304,12 @@
         };
 
         // MindAR 開始
+        setStatus("カメラを起動中…");
         await mindarThree.start();
         hideLoading();
 
         // レンダーループ
-        renderer.setAnimationLoop(function(time) {
-          TWEEN.update(time);
+        renderer.setAnimationLoop(function() {
           if (splatViewer) {
             try { splatViewer.update(); } catch(e) {}
           }
@@ -291,9 +319,9 @@
       } catch (err) {
         console.error("AR初期化エラー:", err);
         var msg = err.message || String(err);
-        if (err.name === "NotAllowedError" || msg.includes("camera") || msg.includes("Permission")) {
-          showError("カメラへのアクセスが拒否されました。\nブラウザの設定からカメラを許可してください。");
-        } else if (msg.includes("targets.mind") || msg.includes("404")) {
+        if (err.name === "NotAllowedError" || msg.indexOf("camera") !== -1 || msg.indexOf("Permission") !== -1) {
+          showError("カメラへのアクセスが拒否されました。\nSafariの設定 → このWebサイト → カメラ → 許可\nに変更してください。");
+        } else if (msg.indexOf("targets.mind") !== -1 || msg.indexOf("404") !== -1) {
           showError("マーカーファイルが見つかりません。\ntargets.mind が正しく配置されているか確認してください。");
         } else {
           showError(msg);
@@ -301,10 +329,9 @@
       }
     }
 
-    // ライブラリ読み込み完了後に初期化
-    window.addEventListener("load", function() {
-      // 少し待ってからMindARの存在を確認
-      setTimeout(init, 100);
+    // DOMContentLoaded 後に開始
+    document.addEventListener("DOMContentLoaded", function() {
+      init();
     });
   </script>
 </body>
