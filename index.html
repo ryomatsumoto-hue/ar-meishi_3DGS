@@ -120,6 +120,17 @@
   <div id="scan-hint">📇 名刺のQRコードにカメラを向けてください</div>
   <div id="ar-container"></div>
 
+  <!-- デバッグオーバーレイ（常時表示） -->
+  <div id="debug-overlay" style="
+    position:fixed; top:10px; left:10px; right:10px;
+    background:rgba(0,0,0,0.75); color:#0f0;
+    font-size:11px; font-family:monospace;
+    padding:8px; border-radius:6px;
+    z-index:99999; pointer-events:none;
+    white-space:pre-wrap; word-break:break-all;
+    max-height:200px; overflow:hidden;
+  ">デバッグ情報を収集中…</div>
+
   <script>
     // =====================================================
     // 設定
@@ -135,10 +146,14 @@
     // =====================================================
     // ユーティリティ
     // =====================================================
+    var debugLog = [];
     function setStatus(msg) {
       var el = document.getElementById("loading-status");
       if (el) el.textContent = msg;
       console.log("[STATUS]", msg);
+      debugLog.push(msg);
+      var dbg = document.getElementById("debug-overlay");
+      if (dbg) dbg.textContent = debugLog.slice(-8).join("\n");
     }
 
     function showError(msg) {
