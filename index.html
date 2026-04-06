@@ -7,11 +7,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>AR 名刺 - 3DGS</title>
 
+  <!-- Three.js グローバル版（window.THREE を公開） -->
+  <script src="./three.min.js"></script>
+
   <!--
     mindar-image-three.umd.js は rollup で Three.js + MindAR を
     IIFE 形式にバンドルしたもの。
     読み込み後に window.MINDAR.IMAGE.MindARThree が使えるようになる。
-    Three.js も内包しているため three.min.js は不要。
   -->
   <script src="./mindar-image-three.umd.js"></script>
 
