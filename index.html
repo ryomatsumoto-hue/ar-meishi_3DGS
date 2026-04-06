@@ -383,16 +383,40 @@
         console.log(debugMsg);
         setStatus(debugMsg);
 
-        // .splat ファイルを自前でfetch・パースしてThree.js Pointsとして表示
-        setStatus(".splatファイルを読み込み中…");
-        loadSplatAsPoints(CONFIG.splatPath, THREE_ref).then(function(pointsMesh) {
-          displayMesh = pointsMesh;
-          setStatus("✅ .splat読み込み成功");
-          setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
-        }).catch(function(e) {
-          setStatus(".splat失敗: " + (e.message || String(e)).substring(0, 60));
-          setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
-        });
+        // まずGaussianSplats3Dライブラリを試みる、失敗したら自前レンダラーにフォールバック
+        if (GS3D && GS3D.Viewer) {
+          setStatus("GS3Dライブラリで読み込み中…");
+          try {
+            splatViewer = new GS3D.Viewer({
+              renderer:               renderer,
+              camera:                 camera,
+              selfDrivenMode:         false,
+              useBuiltInControls:     false,
+              ignoreDevicePixelRatio: false,
+              gpuAcceleratedSort:     false,
+              sharedMemoryForWorkers: false,
+              dynamicScene:           false
+            });
+            scene.add(splatViewer.splatMesh);
+            splatViewer.addSplatScene(CONFIG.splatPath, {
+              splatAlphaRemovalThreshold: 5,
+              progressiveLoad:            false
+            }).then(function() {
+              displayMesh = splatViewer.splatMesh;
+              setStatus("✅ GS3D読み込み成功");
+              setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref);
+            }).catch(function(e) {
+              setStatus("GS3D失敗→自前: " + (e.message||String(e)).substring(0,40));
+              try { scene.remove(splatViewer.splatMesh); } catch(ex) {}
+              loadSplatFallback(anchorGroup, anchor, mindarThree, renderer, scene, camera, THREE_ref);
+            });
+          } catch(e) {
+            setStatus("GS3D初期化失敗→自前: " + (e.message||String(e)).substring(0,40));
+            loadSplatFallback(anchorGroup, anchor, mindarThree, renderer, scene, camera, THREE_ref);
+          }
+        } else {
+          loadSplatFallback(anchorGroup, anchor, mindarThree, renderer, scene, camera, THREE_ref);
+        }
 
       } catch (err) {
         console.error("AR初期化エラー:", err);
@@ -403,6 +427,17 @@
           showError(msg);
         }
       }
+    }
+
+    function loadSplatFallback(anchorGroup, anchor, mindarThree, renderer, scene, camera, THREE_ref) {
+      setStatus(".splatファイルを読み込み中…");
+      loadSplatAsPoints(CONFIG.splatPath, THREE_ref).then(function(mesh) {
+        setStatus("✅ .splat読み込み成功");
+        setupAnchor(mesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
+      }).catch(function(e) {
+        setStatus(".splat失敗: " + (e.message || String(e)).substring(0, 60));
+        setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
+      });
     }
 
     function setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref) {
