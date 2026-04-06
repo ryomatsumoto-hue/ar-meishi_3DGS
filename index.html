@@ -213,12 +213,10 @@
     }
 
     // =====================================================
-    // .splat ファイルパーサー（自前実装）
+    // .splat ガウシアンスプラット レンダラー（自前実装）
+    // 各スプラットをビルボード四角形として描画
+    // ガウシアン関数でアルファを計算
     // mkkellogg形式: 32バイト/スプラット
-    //   offset  0: x,y,z          (float32 x3 = 12bytes)
-    //   offset 12: scale_0,1,2    (float32 x3 = 12bytes)
-    //   offset 24: r,g,b,a        (uint8  x4 =  4bytes)
-    //   offset 28: rot_0,1,2,3    (uint8  x4 =  4bytes)
     // =====================================================
     function loadSplatAsPoints(url, THREE_ref) {
       return fetch(url).then(function(res) {
@@ -227,40 +225,91 @@
       }).then(function(buffer) {
         var RECORD = 32;
         var numSplats = Math.floor(buffer.byteLength / RECORD);
-        // 全点表示（109,671点）
-        var maxSplats = numSplats;
+        // iOSパフォーマンスのため最大3万スプラットに制限
+        var maxSplats = Math.min(numSplats, 30000);
         var step = Math.max(1, Math.floor(numSplats / maxSplats));
         var count = Math.floor(numSplats / step);
 
-        setStatus(".splat: " + numSplats + "splats → " + count + "点表示");
+        setStatus(".splat: " + numSplats + "splats → " + count + "個表示");
 
-        var positions = new Float32Array(count * 3);
-        var colors    = new Float32Array(count * 3);
         var view = new DataView(buffer);
+
+        // 各スプラットを四角形（2三角形=6頂点）として展開
+        var positions  = new Float32Array(count * 6 * 3);
+        var colors     = new Float32Array(count * 6 * 4);
+        var uvs        = new Float32Array(count * 6 * 2);
+
+        // ビルボード用の四角形オフセット（ローカル座標）
+        var quad = [
+          [-1,-1], [1,-1], [1,1],
+          [-1,-1], [1,1], [-1,1]
+        ];
 
         for (var i = 0; i < count; i++) {
           var off = (i * step) * RECORD;
-          positions[i*3+0] =  view.getFloat32(off + 0, true);
-          positions[i*3+1] = -view.getFloat32(off + 4, true); // Y軸反転
-          positions[i*3+2] =  view.getFloat32(off + 8, true);
-          colors[i*3+0] = view.getUint8(off + 24) / 255;
-          colors[i*3+1] = view.getUint8(off + 25) / 255;
-          colors[i*3+2] = view.getUint8(off + 26) / 255;
+          var x  =  view.getFloat32(off + 0, true);
+          var y  = -view.getFloat32(off + 4, true); // Y軸反転
+          var z  =  view.getFloat32(off + 8, true);
+          var s0 = Math.exp(view.getFloat32(off + 12, true));
+          var s1 = Math.exp(view.getFloat32(off + 16, true));
+          var sz = Math.max(s0, s1) * 2.0; // スプラットサイズ
+          var r  = view.getUint8(off + 24) / 255;
+          var g  = view.getUint8(off + 25) / 255;
+          var b  = view.getUint8(off + 26) / 255;
+          var a  = view.getUint8(off + 27) / 255;
+
+          for (var j = 0; j < 6; j++) {
+            var vi = (i * 6 + j);
+            // ビルボード: 位置はシェーダーで展開するため中心座標を格納
+            positions[vi*3+0] = x;
+            positions[vi*3+1] = y;
+            positions[vi*3+2] = z;
+            colors[vi*4+0] = r;
+            colors[vi*4+1] = g;
+            colors[vi*4+2] = b;
+            colors[vi*4+3] = a;
+            uvs[vi*2+0] = quad[j][0] * sz;
+            uvs[vi*2+1] = quad[j][1] * sz;
+          }
         }
 
         var geo = new THREE_ref.BufferGeometry();
         geo.setAttribute('position', new THREE_ref.BufferAttribute(positions, 3));
-        geo.setAttribute('color',    new THREE_ref.BufferAttribute(colors, 3));
+        geo.setAttribute('color',    new THREE_ref.BufferAttribute(colors, 4));
+        geo.setAttribute('uv',       new THREE_ref.BufferAttribute(uvs, 2));
 
-        var mat = new THREE_ref.PointsMaterial({
-          size:            0.03,
-          vertexColors:    true,
-          sizeAttenuation: true,
-          transparent:     false,
-          depthWrite:      true
+        var mat = new THREE_ref.ShaderMaterial({
+          vertexShader: [
+            'attribute vec4 color;',
+            'attribute vec2 uv;',
+            'varying vec4 vColor;',
+            'varying vec2 vUv;',
+            'void main() {',
+            '  vColor = color;',
+            '  vUv = uv;',
+            '  // ビルボード: カメラ空間でオフセット',
+            '  vec4 mvPos = modelViewMatrix * vec4(position, 1.0);',
+            '  mvPos.xy += uv;',
+            '  gl_Position = projectionMatrix * mvPos;',
+            '}'
+          ].join('\n'),
+          fragmentShader: [
+            'varying vec4 vColor;',
+            'varying vec2 vUv;',
+            'void main() {',
+            '  // ガウシアン関数でアルファ計算',
+            '  float r2 = dot(vUv, vUv);',
+            '  float alpha = exp(-0.5 * r2) * vColor.a;',
+            '  if (alpha < 0.02) discard;',
+            '  gl_FragColor = vec4(vColor.rgb, alpha);',
+            '}'
+          ].join('\n'),
+          transparent: true,
+          depthWrite:  false,
+          blending:    THREE_ref.NormalBlending
         });
 
-        return new THREE_ref.Points(geo, mat);
+        return new THREE_ref.Mesh(geo, mat);
       });
     }
 
