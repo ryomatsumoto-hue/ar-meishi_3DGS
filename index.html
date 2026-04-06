@@ -287,7 +287,8 @@
           setStatus("3DGSデータを読み込み中…");
           try {
             splatViewer = new GS3D.Viewer({
-              threeScene:             scene,
+              renderer:               renderer,
+              camera:                 camera,
               selfDrivenMode:         false,
               useBuiltInControls:     false,
               ignoreDevicePixelRatio: false,
@@ -295,6 +296,8 @@
               sharedMemoryForWorkers: false,
               dynamicScene:           false
             });
+            // splatMeshをsceneに追加
+            scene.add(splatViewer.splatMesh);
             // v0.4.x では addSplatScene() を使用
             splatViewer.addSplatScene(CONFIG.splatPath, {
               splatAlphaRemovalThreshold: 5,
@@ -306,7 +309,7 @@
               setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref);
             }).catch(function(e) {
               console.warn("3DGS読み込み失敗:", e);
-              setStatus("3DGS失敗: " + (e.message || String(e)));
+              setStatus("3DGS失敗: " + (e.message || String(e)).substring(0, 80));
               setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
             });
           } catch (e) {
