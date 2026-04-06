@@ -7,20 +7,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>AR 名刺 - 3DGS</title>
 
-  <!-- importmap: "three" をローカルのESモジュール版にマッピング -->
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "./three.module.min.js"
-    }
-  }
-  </script>
-
-  <!-- Three.js (グローバル変数 THREE 用) -->
-  <script src="./three.min.js"></script>
-
-  <!-- MindAR.js: ESモジュール形式 → type="module" で読み込み、window.MINDAR を設定させる -->
-  <script type="module" src="./mindar-image-three.prod.js"></script>
+  <!--
+    mindar-image-three.umd.js は rollup で Three.js + MindAR を
+    IIFE 形式にバンドルしたもの。
+    読み込み後に window.MINDAR.IMAGE.MindARThree が使えるようになる。
+    Three.js も内包しているため three.min.js は不要。
+  -->
+  <script src="./mindar-image-three.umd.js"></script>
 
   <!-- gaussian-splats-3d: UMD形式 -->
   <script src="./gaussian-splats-3d.umd.js"></script>
@@ -197,51 +190,48 @@
     }
 
     // =====================================================
-    // MindAR 準備完了を待つ（type="module" は非同期）
-    // =====================================================
-    function waitForMindAR(maxWait, callback) {
-      var elapsed = 0;
-      var interval = 100;
-      function check() {
-        if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.MindARThree) {
-          callback(null);
-        } else if (elapsed >= maxWait) {
-          callback(new Error("MindAR.js タイムアウト（" + maxWait + "ms）\nMINDAR=" + typeof window.MINDAR));
-        } else {
-          elapsed += interval;
-          setTimeout(check, interval);
-        }
-      }
-      check();
-    }
-
-    // =====================================================
     // メイン初期化
     // =====================================================
     function init() {
       setStatus("ライブラリ確認中…");
 
-      if (typeof THREE === "undefined") {
-        showError("Three.js が読み込まれていません。\nページを再読み込みしてください。");
+      // MindAR UMDバンドルには Three.js が内包されている
+      // window.MindARBundle.MindARThree または window.MINDAR.IMAGE.MindARThree
+      var MindARThree = null;
+      if (window.MINDAR && window.MINDAR.IMAGE && window.MINDAR.IMAGE.MindARThree) {
+        MindARThree = window.MINDAR.IMAGE.MindARThree;
+        console.log("✅ window.MINDAR.IMAGE.MindARThree 確認");
+      } else if (window.MindARBundle && window.MindARBundle.MindARThree) {
+        MindARThree = window.MindARBundle.MindARThree;
+        console.log("✅ window.MindARBundle.MindARThree 確認");
+      } else {
+        showError(
+          "MindAR.js が読み込まれていません。\n" +
+          "ページを再読み込みしてください。\n\n" +
+          "[DEBUG]\n" +
+          "MINDAR=" + typeof window.MINDAR + "\n" +
+          "MindARBundle=" + typeof window.MindARBundle
+        );
         return;
       }
 
-      // MindAR は type="module" で非同期読み込みのため、最大5秒待つ
-      setStatus("MindAR.js を待機中…");
-      waitForMindAR(5000, function(err) {
-        if (err) {
-          showError(err.message);
-          return;
-        }
-        startAR();
-      });
+      // THREE はバンドル内に含まれているが、グローバルには公開されていない場合がある
+      // MindARThreeのインスタンスからscene/renderer/cameraを取得するので問題なし
+      // ただしフォールバック用にTHREEが必要 → バンドルからTHREEを取得
+      var THREE_ref = window.THREE || null;
+      if (!THREE_ref) {
+        // MindARBundleにTHREEが含まれているか確認
+        console.warn("window.THREE が未定義。フォールバックオブジェクトは使用不可。");
+      }
+
+      startAR(MindARThree, THREE_ref);
     }
 
-    function startAR() {
+    function startAR(MindARThree, THREE_ref) {
       try {
         setStatus("ARを初期化中…");
 
-        var mindarThree = new window.MINDAR.IMAGE.MindARThree({
+        var mindarThree = new MindARThree({
           container:      document.getElementById("ar-container"),
           imageTargetSrc: CONFIG.mindFilePath,
           maxTrack:       1,
@@ -254,11 +244,9 @@
         var scene    = mindarThree.scene;
         var camera   = mindarThree.camera;
 
-        // ライティング
-        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-        var dir = new THREE.DirectionalLight(0xffffff, 0.5);
-        dir.position.set(1, 2, 1);
-        scene.add(dir);
+        // THREE_ref がない場合はバンドル内のTHREEを使う
+        // MindARThreeのsceneはTHREE.Sceneなので、THREE_refがなくてもARは動く
+        // フォールバック球体のためだけにTHREEが必要
 
         // アンカー
         var anchor = mindarThree.addAnchor(0);
@@ -287,18 +275,18 @@
             }).then(function() {
               displayMesh = splatViewer.splatMesh;
               console.log("✅ 3DGS読み込み成功");
-              setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer);
+              setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref);
             }).catch(function(e) {
               console.warn("3DGS読み込み失敗:", e);
-              setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null);
+              setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
             });
           } catch (e) {
             console.warn("3DGS初期化失敗:", e);
-            setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null);
+            setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
           }
         } else {
           console.log("ℹ️ GaussianSplats3D未定義、フォールバックを使用");
-          setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null);
+          setupAnchor(null, anchorGroup, anchor, mindarThree, renderer, scene, camera, null, THREE_ref);
         }
 
       } catch (err) {
@@ -312,14 +300,26 @@
       }
     }
 
-    function setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer) {
+    function setupAnchor(displayMesh, anchorGroup, anchor, mindarThree, renderer, scene, camera, splatViewer, THREE_ref) {
       if (!displayMesh) {
-        console.log("ℹ️ フォールバックオブジェクトを使用");
-        var geo = new THREE.SphereGeometry(0.08, 32, 32);
-        var mat = new THREE.MeshStandardMaterial({
-          color: 0x4488ff, metalness: 0.3, roughness: 0.4
-        });
-        displayMesh = new THREE.Mesh(geo, mat);
+        if (THREE_ref) {
+          console.log("ℹ️ フォールバックオブジェクトを使用");
+          var geo = new THREE_ref.SphereGeometry(0.08, 32, 32);
+          var mat = new THREE_ref.MeshStandardMaterial({
+            color: 0x4488ff, metalness: 0.3, roughness: 0.4
+          });
+          displayMesh = new THREE_ref.Mesh(geo, mat);
+          // ライティング追加
+          scene.add(new THREE_ref.AmbientLight(0xffffff, 1.0));
+          var dir = new THREE_ref.DirectionalLight(0xffffff, 0.5);
+          dir.position.set(1, 2, 1);
+          scene.add(dir);
+        } else {
+          // THREE_refなし → 空のGroupを使う
+          console.warn("THREE未定義のためフォールバックオブジェクト作成不可");
+          displayMesh = { scale: { set: function(){}, x: 0 }, position: { set: function(){} } };
+          anchorGroup.add = function() {};
+        }
       }
 
       displayMesh.scale.set(0, 0, 0);
