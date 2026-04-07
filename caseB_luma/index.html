@@ -336,6 +336,7 @@
 
         // マーカー認識イベント
         anchor.onTargetFound = function() {
+          setStatus("✅ マーカー認識！mesh=" + (mesh ? "OK" : "null"));
           console.log("✅ マーカー認識");
           flashScreen();
           animateAppear(mesh);
@@ -343,6 +344,7 @@
         };
 
         anchor.onTargetLost = function() {
+          setStatus("❌ マーカー消失");
           console.log("❌ マーカー消失");
           animateDisappear(mesh);
           setTimeout(function() {
