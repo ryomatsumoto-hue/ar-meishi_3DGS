@@ -229,12 +229,35 @@
       var LumaSplatsThree = null;
       var lumaDebug = "LumaWeb=" + typeof window.LumaWeb +
                       " err=" + (window._lumaLoadError ? "YES" : "no") +
+                      " loaded=" + (window._lumaLoaded ? "YES" : "no") +
                       " keys=" + (window.LumaWeb ? Object.keys(window.LumaWeb).slice(0,5).join(",") : "N/A");
       setStatus(lumaDebug);
 
-      if (window.LumaWeb && window.LumaWeb.LumaSplatsThree) {
-        LumaSplatsThree = window.LumaWeb.LumaSplatsThree;
-        setStatus("✅ LumaSplatsThree 確認");
+      if (window.LumaWeb) {
+        // LumaSplatsThree は lazy getter（関数）の場合がある
+        var lst = window.LumaWeb.LumaSplatsThree;
+        if (typeof lst === "function") {
+          try {
+            // getter として呼び出してみる
+            var result = lst();
+            if (result && typeof result === "function") {
+              LumaSplatsThree = result;
+              setStatus("✅ LumaSplatsThree getter呼び出し成功");
+            } else {
+              // 直接クラスとして使用
+              LumaSplatsThree = lst;
+              setStatus("✅ LumaSplatsThree 関数として確認");
+            }
+          } catch(e) {
+            LumaSplatsThree = lst;
+            setStatus("✅ LumaSplatsThree 直接使用");
+          }
+        } else if (lst) {
+          LumaSplatsThree = lst;
+          setStatus("✅ LumaSplatsThree オブジェクトとして確認");
+        } else {
+          setStatus("⚠️ LumaSplatsThree未定義 keys=" + Object.keys(window.LumaWeb).join(","));
+        }
       } else {
         setStatus("⚠️ LumaWeb未定義: " + typeof window.LumaWeb);
       }
