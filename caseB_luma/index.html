@@ -312,8 +312,13 @@
 
             // ロード完了イベント
             splat.onLoad = function() {
-              setStatus("✅ Luma 3DGS読み込み成功");
+              setStatus("✅ Luma 3DGS読み込み成功！");
               console.log("✅ Luma splat loaded");
+            };
+
+            // 進捗イベント
+            splat.onProgress = function(progress) {
+              setStatus("Luma読み込み中: " + Math.round(progress * 100) + "%");
             };
 
             anchorGroup.add(splat);
