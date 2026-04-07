@@ -14,7 +14,7 @@
   <script src="./mindar-image-three.umd.js"></script>
 
   <!-- Luma AI Web SDK（LumaWeb.LumaSplatsThree を公開） -->
-  <script src="./luma-web.js"></script>
+  <script src="./luma-web.js" onerror="window._lumaLoadError=true"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -226,6 +226,11 @@
       }
 
       var LumaSplatsThree = null;
+      var lumaDebug = "LumaWeb=" + typeof window.LumaWeb +
+                      " err=" + (window._lumaLoadError ? "YES" : "no") +
+                      " keys=" + (window.LumaWeb ? Object.keys(window.LumaWeb).slice(0,5).join(",") : "N/A");
+      setStatus(lumaDebug);
+
       if (window.LumaWeb && window.LumaWeb.LumaSplatsThree) {
         LumaSplatsThree = window.LumaWeb.LumaSplatsThree;
         setStatus("✅ LumaSplatsThree 確認");
