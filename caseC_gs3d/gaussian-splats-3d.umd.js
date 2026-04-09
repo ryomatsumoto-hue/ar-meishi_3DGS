@@ -11657,13 +11657,7 @@ var GaussianSplats3D = (function (exports, THREE) {
 
   function createSortWorker(splatCount, useSharedMemory, enableSIMDInSort, integerBasedSort, dynamicMode,
                                    splatSortDistanceMapPrecision = Constants.DefaultSplatSortDistanceMapPrecision) {
-      const worker = new Worker(
-          URL.createObjectURL(
-              new Blob(['(', sortWorker.toString(), ')(self)'], {
-                  type: 'application/javascript',
-              }),
-          ),
-      );
+      const worker = new Worker('./sort-worker.js');
 
       let sourceWasm = SorterWasm;
 
