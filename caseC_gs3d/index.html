@@ -125,7 +125,7 @@
     // =====================================================
     // 設定
     // =====================================================
-    var VERSION = "v17"; // ← コンテンツ差し替え確認用バージョン番号
+    var VERSION = "v18"; // ← コンテンツ差し替え確認用バージョン番号
 
     var CONFIG = {
       splatPath:      "./ryo_ss60_edit.splat",
@@ -371,7 +371,19 @@
         mindarThree.start().then(function() {
           hideLoading();
           renderer.setAnimationLoop(function() {
-            try { splatViewer.update(); } catch(e) {}
+            try {
+              // anchorGroupのワールド行列を更新
+              anchorGroup.updateWorldMatrix(true, false);
+              // カメラのワールド位置をsplatのローカル座標系に変換
+              var invMatrix = new THREE.Matrix4().copy(anchorGroup.matrixWorld).invert();
+              var localCamPos = camera.position.clone().applyMatrix4(invMatrix);
+              // 元のカメラ位置を保存して一時的に変換
+              var origCamPos = camera.position.clone();
+              camera.position.copy(localCamPos);
+              splatViewer.update();
+              // カメラ位置を元に戻す
+              camera.position.copy(origCamPos);
+            } catch(e) {}
             renderer.render(scene, camera);
           });
         }).catch(function(err) {
