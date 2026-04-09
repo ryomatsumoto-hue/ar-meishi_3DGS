@@ -125,12 +125,17 @@
     // =====================================================
     // 設定
     // =====================================================
+    var VERSION = "v7"; // ← コンテンツ差し替え確認用バージョン番号
+
     var CONFIG = {
       splatPath:      "./ryo_ss60_edit.splat",
       mindFilePath:   "./targets.mind",
       targetScale:    0.5,
       positionOffset: { x: 0, y: 0.1, z: 0 },
-      rotationY:      -Math.PI / 4 + Math.PI + Math.PI / 2 + Math.PI,
+      // 回転: Y軸 = 3*PI/4 (135度), Z軸 = PI (180度)
+      // 前回: -PI/4 + PI + PI/2 + PI = 3*PI/4 + PI = 7*PI/4 (315度)
+      // 今回: 7*PI/4 + PI = 11*PI/4 → 3*PI/4 (315+180=495→135度)
+      rotationY:      3 * Math.PI / 4,
       rotationZ:      Math.PI,
       animDuration:   800
     };
@@ -145,7 +150,12 @@
       console.log("[STATUS]", msg);
       debugLog.push(msg);
       var dbg = document.getElementById("debug-overlay");
-      if (dbg) dbg.textContent = debugLog.slice(-12).join("\n");
+      if (dbg) {
+        var header = VERSION +
+          " | rotY=" + (CONFIG.rotationY / Math.PI * 180).toFixed(0) + "°" +
+          " rotZ=" + (CONFIG.rotationZ / Math.PI * 180).toFixed(0) + "°";
+        dbg.textContent = header + "\n" + debugLog.slice(-10).join("\n");
+      }
     }
 
     function showError(msg) {
