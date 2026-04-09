@@ -125,15 +125,15 @@
     // =====================================================
     // 設定
     // =====================================================
-    var VERSION = "v11"; // ← コンテンツ差し替え確認用バージョン番号
+    var VERSION = "v12"; // ← コンテンツ差し替え確認用バージョン番号
 
     var CONFIG = {
       splatPath:      "./ryo_ss60_edit.splat",
       mindFilePath:   "./targets.mind",
       targetScale:    0.5,
       positionOffset: { x: 0, y: 0.1, z: 0 },
-      // 回転: Y軸 = 0度, Z軸 = PI (180度)
-      rotationY:      0,
+      // 回転: Y軸 = -45度 (-PI/4 = 315度), Z軸 = PI (180度)
+      rotationY:      -Math.PI / 4,
       rotationZ:      Math.PI,
       animDuration:   800
     };
