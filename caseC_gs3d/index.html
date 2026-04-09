@@ -125,7 +125,7 @@
     // =====================================================
     // 設定
     // =====================================================
-    var VERSION = "v14"; // ← コンテンツ差し替え確認用バージョン番号
+    var VERSION = "v15"; // ← コンテンツ差し替え確認用バージョン番号
 
     var CONFIG = {
       splatPath:      "./ryo_ss60_edit.splat",
@@ -331,6 +331,20 @@
         }).then(function() {
           setStatus("✅ 3DGS読み込み成功！");
           console.log("✅ 3DGS loaded via SplatParser");
+          // depthTestを有効化して前後関係を修正
+          if (splatMesh.material) {
+            splatMesh.material.depthTest = true;
+            splatMesh.material.needsUpdate = true;
+          }
+          // 複数マテリアルの場合
+          if (splatMesh.children) {
+            splatMesh.children.forEach(function(child) {
+              if (child.material) {
+                child.material.depthTest = true;
+                child.material.needsUpdate = true;
+              }
+            });
+          }
         }).catch(function(e) {
           setStatus("3DGS失敗: " + (e.message || String(e)).substring(0, 60));
           console.error("3DGS error:", e);
