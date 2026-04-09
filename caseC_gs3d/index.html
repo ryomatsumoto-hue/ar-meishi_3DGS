@@ -125,7 +125,7 @@
     // =====================================================
     // 設定
     // =====================================================
-    var VERSION = "v15"; // ← コンテンツ差し替え確認用バージョン番号
+    var VERSION = "v16"; // ← コンテンツ差し替え確認用バージョン番号
 
     var CONFIG = {
       splatPath:      "./ryo_ss60_edit.splat",
@@ -371,7 +371,10 @@
         mindarThree.start().then(function() {
           hideLoading();
           renderer.setAnimationLoop(function() {
-            try { splatViewer.update(); } catch(e) {}
+            // splatViewer.update()はWorkerでソートするが、
+            // anchorGroupのワールド座標系とViewerのカメラ座標系が不整合のため
+            // update()を呼ばずにレンダリング（ソートなし）
+            // try { splatViewer.update(); } catch(e) {}
             renderer.render(scene, camera);
           });
         }).catch(function(err) {
