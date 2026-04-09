@@ -131,6 +131,7 @@
       targetScale:    0.5,
       positionOffset: { x: 0, y: 0.1, z: 0 },
       rotationY:      -Math.PI / 4 + Math.PI,
+      rotationZ:      Math.PI,
       animDuration:   800
     };
 
@@ -299,6 +300,7 @@
           CONFIG.positionOffset.z
         );
         splatMesh.rotation.y = CONFIG.rotationY;
+        if (CONFIG.rotationZ) splatMesh.rotation.z = CONFIG.rotationZ;
         anchorGroup.add(splatMesh);
 
         // メインスレッドでsplatをパース・ロード
