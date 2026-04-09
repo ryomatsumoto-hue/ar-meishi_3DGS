@@ -125,7 +125,7 @@
     // =====================================================
     // 設定
     // =====================================================
-    var VERSION = "v8"; // ← コンテンツ差し替え確認用バージョン番号
+    var VERSION = "v9"; // ← コンテンツ差し替え確認用バージョン番号
 
     var CONFIG = {
       splatPath:      "./ryo_ss60_edit.splat",
@@ -287,7 +287,8 @@
         var anchor = mindarThree.addAnchor(0);
         var anchorGroup = anchor.group;
 
-        // GaussianSplats3D Viewer（selfDrivenMode: false）
+        // GaussianSplats3D Viewer（selfDrivenMode: false、threeSceneなし）
+        // splatMeshはanchorGroupに追加するため、ViewerにはthreeSceneを渡さない
         var splatViewer = new GS3D.Viewer({
           renderer:               renderer,
           camera:                 camera,
@@ -299,8 +300,12 @@
           dynamicScene:           false
         });
 
-        // splatMeshをanchorGroupに追加
+        // splatMeshをanchorGroupに追加（Viewerの内部sceneからは削除）
         var splatMesh = splatViewer.splatMesh;
+        // Viewerが内部sceneにsplatMeshを追加している場合は削除
+        if (splatMesh.parent) {
+          splatMesh.parent.remove(splatMesh);
+        }
         splatMesh.scale.set(0, 0, 0);
         splatMesh.position.set(
           CONFIG.positionOffset.x,
