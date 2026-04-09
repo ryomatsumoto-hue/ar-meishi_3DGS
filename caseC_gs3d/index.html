@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AR 名刺 - Case C (GS3D SplatParser)</title>
+
+  <!-- Three.js グローバル版（window.THREE を公開） -->
+  <script src="./three.min.js"></script>
+
+  <!-- MindAR.js（rollupでIIFEバンドル済み） -->
+  <script src="./mindar-image-three.umd.js"></script>
+
+  <!-- GaussianSplats3D（window.THREE共有版） -->
+  <script src="./gaussian-splats-3d.umd.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #ar-container {
+      width: 100%; height: 100%;
+      position: fixed; top: 0; left: 0;
+      overflow: hidden;
+    }
+    #loading-screen {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.92);
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      z-index: 9999; color: white; gap: 20px;
+    }
+    #loading-screen .logo { font-size: 48px; }
+    #loading-screen h1 { font-size: 22px; font-weight: 600; }
+    #loading-screen p { font-size: 14px; color: #aaa; text-align: center; max-width: 280px; line-height: 1.6; }
+    #loading-status { font-size: 12px; color: #888; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #scan-hint {
+      position: fixed; bottom: 40px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.65);
+      color: white; padding: 14px 24px;
+      border-radius: 30px; font-size: 15px;
+      text-align: center; z-index: 100;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.15);
+      pointer-events: none;
+      transition: opacity 0.5s ease;
+      white-space: nowrap;
+    }
+    #scan-hint.hidden { opacity: 0; }
+    #found-flash {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.3);
+      z-index: 50; pointer-events: none;
+      opacity: 0; transition: opacity 0.15s ease;
+    }
+    #found-flash.flash { opacity: 1; }
+    #error-screen {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.9);
+      display: none; flex-direction: column;
+      justify-content: center; align-items: center;
+      z-index: 9999; color: white; gap: 16px;
+      padding: 32px; text-align: center;
+    }
+    #error-screen h2 { font-size: 20px; color: #ff6b6b; }
+    #error-screen p { font-size: 13px; color: #ccc; line-height: 1.6; white-space: pre-line; word-break: break-all; }
+    #error-screen button {
+      margin-top: 8px; padding: 12px 28px;
+      background: white; color: black;
+      border: none; border-radius: 24px;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+    }
+    #debug-overlay {
+      position: fixed; top: 10px; left: 10px; right: 10px;
+      background: rgba(0,0,0,0.75); color: #0f0;
+      font-size: 11px; font-family: monospace;
+      padding: 8px; border-radius: 6px;
+      z-index: 99999; pointer-events: none;
+      white-space: pre-wrap; word-break: break-all;
+      max-height: 200px; overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-screen">
+    <div class="logo">✨</div>
+    <h1>AR 名刺 - Case C</h1>
+    <div class="spinner"></div>
+    <p>カメラと3Dデータを<br>読み込んでいます…</p>
+    <div id="loading-status">初期化中…</div>
+  </div>
+
+  <div id="error-screen">
+    <h2>⚠️ エラーが発生しました</h2>
+    <p id="error-message">エラーが発生しました。</p>
+    <button onclick="location.reload()">再試行</button>
+  </div>
+
+  <div id="found-flash"></div>
+  <div id="scan-hint">📇 名刺のQRコードにカメラを向けてください</div>
+  <div id="ar-container"></div>
+  <div id="debug-overlay">初期化中…</div>
+
+  <script>
+    // =====================================================
+    // 設定
+    // =====================================================
+    var CONFIG = {
+      splatPath:      "./ryo_ss60_edit.splat",
+      mindFilePath:   "./targets.mind",
+      targetScale:    0.5,
+      positionOffset: { x: 0, y: 0.1, z: 0 },
+      rotationY:      -Math.PI / 4 + Math.PI,
+      animDuration:   800
+    };
+
+    // =====================================================
+    // ユーティリティ
+    // =====================================================
+    var debugLog = [];
+    function setStatus(msg) {
+      var el = document.getElementById("loading-status");
+      if (el) el.textContent = msg;
+      console.log("[STATUS]", msg);
+      debugLog.push(msg);
+      var dbg = document.getElementById("debug-overlay");
+      if (dbg) dbg.textContent = debugLog.slice(-12).join("\n");
+    }
+
+    function showError(msg) {
+      document.getElementById("loading-screen").style.display = "none";
+      var s = document.getElementById("error-screen");
+      s.style.display = "flex";
+      document.getElementById("error-message").textContent = msg;
+      console.error("[ERROR]", msg);
+    }
+
+    function hideLoading() {
+      var el = document.getElementById("loading-screen");
+      el.style.transition = "opacity 0.5s ease";
+      el.style.opacity = "0";
+      setTimeout(function(){ el.style.display = "none"; }, 500);
+    }
+
+    function flashScreen() {
+      var f = document.getElementById("found-flash");
+      f.classList.add("flash");
+      setTimeout(function(){ f.classList.remove("flash"); }, 200);
+    }
+
+    // =====================================================
+    // アニメーション
+    // =====================================================
+    function animateScale(mesh, fromVal, toVal, duration, easeBack) {
+      var start = null;
+      function step(ts) {
+        if (!start) start = ts;
+        var elapsed = ts - start;
+        var t = Math.min(elapsed / duration, 1);
+        var val;
+        if (easeBack) {
+          var c1 = 1.70158, c3 = c1 + 1;
+          val = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+        } else {
+          val = t * t;
+        }
+        var s = fromVal + (toVal - fromVal) * val;
+        mesh.scale.set(s, s, s);
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function animateAppear(mesh) {
+      if (!mesh) return;
+      animateScale(mesh, 0, CONFIG.targetScale, CONFIG.animDuration, true);
+    }
+
+    function animateDisappear(mesh) {
+      if (!mesh) return;
+      var cur = mesh.scale.x;
+      animateScale(mesh, cur, 0, 300, false);
+    }
+
+    // =====================================================
+    // メインスレッドでsplatをパース（Workerなし）
+    // SplatParser → SplatBufferGenerator → SplatBuffer
+    // =====================================================
+    function loadSplatMainThread(url, GS3D) {
+      setStatus(".splatをfetch中…");
+      return fetch(url).then(function(res) {
+        if (!res.ok) throw new Error("HTTP " + res.status + " " + url);
+        return res.arrayBuffer();
+      }).then(function(buffer) {
+        setStatus(".splat fetch完了 (" + (buffer.byteLength / 1024 / 1024).toFixed(1) + "MB)");
+
+        // SplatParserでUncompressedSplatArrayに変換（メインスレッド）
+        var splatArray = GS3D.SplatParser.parseStandardSplatToUncompressedSplatArray(buffer);
+        setStatus("SplatParser完了: " + splatArray.splatCount + "splats");
+
+        // SplatBufferGeneratorでSplatBufferに変換
+        var generator = GS3D.SplatBufferGenerator.getStandardGenerator(5, 0);
+        var splatBuffer = generator.generateFromUncompressedSplatArray(splatArray);
+        setStatus("SplatBuffer生成完了");
+
+        return splatBuffer;
+      });
+    }
+
+    // =====================================================
+    // メイン初期化
+    // =====================================================
+    function init() {
+      setStatus("ライブラリ確認中…");
+
+      if (typeof THREE === "undefined") {
+        showError("Three.js が読み込まれていません。");
+        return;
+      }
+      if (!window.MINDAR || !window.MINDAR.IMAGE || !window.MINDAR.IMAGE.MindARThree) {
+        showError("MindAR.js が読み込まれていません。\nMINDAR=" + typeof window.MINDAR);
+        return;
+      }
+
+      var GS3D = window.GaussianSplats3D || null;
+      setStatus("GS3D=" + typeof GS3D +
+                " SplatParser=" + (GS3D ? typeof GS3D.SplatParser : "N/A") +
+                " Viewer=" + (GS3D ? typeof GS3D.Viewer : "N/A"));
+
+      if (!GS3D || !GS3D.SplatParser || !GS3D.Viewer) {
+        showError("GaussianSplats3D が読み込まれていません。\nGS3D=" + typeof GS3D);
+        return;
+      }
+
+      setStatus("ARを初期化中…");
+
+      try {
+        var mindarThree = new window.MINDAR.IMAGE.MindARThree({
+          container:      document.getElementById("ar-container"),
+          imageTargetSrc: CONFIG.mindFilePath,
+          maxTrack:       1,
+          uiLoading:      "no",
+          uiScanning:     "no",
+          uiError:        "no"
+        });
+
+        var renderer = mindarThree.renderer;
+        var scene    = mindarThree.scene;
+        var camera   = mindarThree.camera;
+
+        // ライティング
+        scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+        var dir = new THREE.DirectionalLight(0xffffff, 0.5);
+        dir.position.set(1, 2, 1);
+        scene.add(dir);
+
+        // アンカー
+        var anchor = mindarThree.addAnchor(0);
+        var anchorGroup = anchor.group;
+
+        // GaussianSplats3D Viewer（selfDrivenMode: false）
+        var splatViewer = new GS3D.Viewer({
+          renderer:               renderer,
+          camera:                 camera,
+          selfDrivenMode:         false,
+          useBuiltInControls:     false,
+          ignoreDevicePixelRatio: false,
+          gpuAcceleratedSort:     false,
+          sharedMemoryForWorkers: false,
+          dynamicScene:           false
+        });
+
+        // splatMeshをanchorGroupに追加
+        var splatMesh = splatViewer.splatMesh;
+        splatMesh.scale.set(0, 0, 0);
+        splatMesh.position.set(
+          CONFIG.positionOffset.x,
+          CONFIG.positionOffset.y,
+          CONFIG.positionOffset.z
+        );
+        splatMesh.rotation.y = CONFIG.rotationY;
+        anchorGroup.add(splatMesh);
+
+        // メインスレッドでsplatをパース・ロード
+        loadSplatMainThread(CONFIG.splatPath, GS3D).then(function(splatBuffer) {
+          setStatus("addSplatBuffers実行中…");
+          return splatViewer.addSplatBuffers(
+            [splatBuffer],
+            [{ splatAlphaRemovalThreshold: 5 }],
+            true,   // finalBuild
+            false,  // showLoadingUI
+            false,  // showLoadingUI2
+            false,  // progressiveLoad
+            false   // progressiveLoad2
+          );
+        }).then(function() {
+          setStatus("✅ 3DGS読み込み成功！");
+          console.log("✅ 3DGS loaded via SplatParser");
+        }).catch(function(e) {
+          setStatus("3DGS失敗: " + (e.message || String(e)).substring(0, 60));
+          console.error("3DGS error:", e);
+        });
+
+        // マーカー認識イベント
+        anchor.onTargetFound = function() {
+          setStatus("✅ マーカー認識！");
+          flashScreen();
+          animateAppear(splatMesh);
+          document.getElementById("scan-hint").classList.add("hidden");
+        };
+
+        anchor.onTargetLost = function() {
+          setStatus("❌ マーカー消失");
+          animateDisappear(splatMesh);
+          setTimeout(function() {
+            document.getElementById("scan-hint").classList.remove("hidden");
+          }, 1000);
+        };
+
+        // MindAR 開始
+        setStatus("カメラを起動中…");
+        mindarThree.start().then(function() {
+          hideLoading();
+          renderer.setAnimationLoop(function() {
+            try { splatViewer.update(); } catch(e) {}
+            renderer.render(scene, camera);
+          });
+        }).catch(function(err) {
+          var msg = err.message || String(err);
+          if (err.name === "NotAllowedError" || msg.indexOf("Permission") !== -1) {
+            showError("カメラへのアクセスが拒否されました。\nSafariの設定 → このWebサイト → カメラ → 許可\nに変更してください。");
+          } else {
+            showError("AR起動エラー: " + msg);
+          }
+        });
+
+      } catch (err) {
+        console.error("AR初期化エラー:", err);
+        showError(err.message || String(err));
+      }
+    }
+
+    window.addEventListener("load", function() {
+      init();
+    });
+  </script>
+</body>
+</html>
